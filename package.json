@@ -1,5 +1,6 @@
 {
-  "name": "@solana/wallet-adapter-create-react-app-starter",
+  "homepage": "https://karan-ksrk.github.io/token-minter",
+  "name": "token-minter",
   "version": "0.1.2",
   "author": "Solana Maintainers <maintainers@solana.foundation>",
   "repository": "https://github.com/solana-labs/wallet-adapter",
@@ -26,6 +27,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.10",
     "@solana/wallet-adapter-wallets": "^0.17.0",
     "@solana/web3.js": "^1.44.3",
+    "gh-pages": "^4.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "web-vitals": "^2.1.4"
@@ -49,6 +51,8 @@
   },
   "scripts": {
     "start": "react-app-rewired start",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"

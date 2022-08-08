@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import * as anchor from "@project-serum/anchor";
 import { useAnchorWallet } from '@solana/wallet-adapter-react';
 import { Program, BN, AnchorProvider } from '@project-serum/anchor';
-import { Connection, PublicKey, GetProgramAccountsFilter, GetTokenAccountsByOwnerConfig } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import '../App.css'
 
@@ -13,16 +13,19 @@ import {
     createAssociatedTokenAccountInstruction,
     getOrCreateAssociatedTokenAccount,
     getAssociatedTokenAddress,
-    getAccount,
     createInitializeMintInstruction,
+    AccountLayout,
 } from "@solana/spl-token";
 
 import idl from '../idl.json'
+import { fetchData } from '@project-serum/anchor/dist/cjs/utils/registry';
 
 const CreateToken = () => {
     const [myWallet, setMyWallet] = useState<any>();
     const [tokenAddress, setTokenAddress] = useState<string>();
     const [ataAddress, setAtaAddress] = useState<PublicKey>();
+    const [tokenAccounts, setTokenAccounts] = useState<any>([]);
+    const [ataAccounts, setAtaAccounts] = useState<any>([]);
     const mintKey = useMemo(() => anchor.web3.Keypair.generate(), []);
     // const mintKey: PublicKey = new anchor.web3.PublicKey("C3RaB4g1uSiyA9UdGTMkVGMAGJdVRLQCxWXP3MTmgNcx");
     const wallet = useAnchorWallet();
@@ -30,10 +33,18 @@ const CreateToken = () => {
 
 
     useEffect(() => {
+        fetchAtaAccounts(tokenAccounts);
+    }, [tokenAccounts]);
+
+    useEffect(() => {
+    }, [ataAccounts]);
+
+    useEffect(() => {
         if (wallet) {
             setMyWallet(wallet.publicKey.toString());
         }
         getProvider();
+        getTokenAccount();
 
     }, [wallet]);
 
@@ -65,11 +76,6 @@ const CreateToken = () => {
         const program = new Program(b, idl.metadata.address, provider);
         const lamports: number = await program.provider.connection.getMinimumBalanceForRentExemption(MINT_SIZE);
 
-        // const associatedTokenAccount = await getAssociatedTokenAddress(
-        //     mintKey.publicKey,
-        //     wallet.publicKey,
-        // )
-
         const mint_tx = new anchor.web3.Transaction().add(
             anchor.web3.SystemProgram.createAccount({
                 fromPubkey: wallet.publicKey,
@@ -81,14 +87,11 @@ const CreateToken = () => {
             createInitializeMintInstruction(
                 mintKey.publicKey, 0, wallet.publicKey, wallet.publicKey
             ),
-            // createAssociatedTokenAccountInstruction(wallet.publicKey, associatedTokenAccount, wallet.publicKey, mintKey.publicKey)
         )
         const res = await provider?.sendAndConfirm(mint_tx, [mintKey]);
 
         if (res) {
             setTokenAddress(mintKey.publicKey.toString());
-            // setAtaAddress(associatedTokenAccount);
-
         }
 
 
@@ -139,14 +142,52 @@ const CreateToken = () => {
         if (!wallet) {
             return null;
         }
+        const network = "https://api.devnet.solana.com";
+        const connection = new Connection(network, "processed");
+
+        const accounts = await connection.getTokenAccountsByOwner(
+            wallet.publicKey,
+            {
+                programId: TOKEN_PROGRAM_ID,
+            }
+        );
+        // let tempAccount = [...tokenAccounts];
+        // accounts.value.forEach((e) => {
+        //     const accountInfo = AccountLayout.decode(e.account.data);
+        //     console.log(`${new PublicKey(accountInfo.mint)}   ${accountInfo.amount}`);
+        //     // setTokenAccounts([...tokenAccounts, accountInfo.mint.toString()]);
+        //     tempAccount.push(accountInfo.mint.toString());
+        // })
+        // setTokenAccounts([...tempAccount]);
+
+        setTokenAccounts(
+            accounts.value.map((i) =>
+                AccountLayout.decode(i.account.data).mint
+            ));
+    };
+
+
+
+    async function fetchAtaAccounts(tokenAccounts: []) {
+        if (!wallet) {
+            return null;
+        }
         const provider = await getProvider();
         if (!provider) {
             return null;
         }
-        // const tokenAccountList = await GetTokenAccountsByOwnerConfig();
+        let tempAccount: any = [];
+        for (const token of tokenAccounts) {
+            const ata = await getAssociatedTokenAddress(
+                token,
+                wallet.publicKey,
+            )
+            tempAccount.push(ata.toString());
+        }
 
-
+        setAtaAccounts([...tempAccount]);
     }
+
 
     async function createATA() {
         if (!wallet) {
@@ -157,7 +198,6 @@ const CreateToken = () => {
         if (!provider) {
             return null;
         }
-        // const token = new anchor.web3.PublicKey("B16c4Lu9etnFs124HA4D4VKF7nVhHWJquPFXgPomCkYE");
         const associatedTokenAccount = await getAssociatedTokenAddress(
             mintKey.publicKey,
             wallet.publicKey,
@@ -218,7 +258,7 @@ const CreateToken = () => {
                         {!tokenAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createToken}>Create Token</button> : null}
 
                         {tokenAddress && !ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createATA}>Create ATA</button> : null}
-                        <p></p> 
+                        <p></p>
                         <div className="container mx-auto px-4 sm:px-8">
                             <div className="py-8">
                                 <div>
@@ -256,60 +296,70 @@ const CreateToken = () => {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr>
-                                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                                        <div className="flex">
-                                                            <div className="flex-shrink-0 w-10 h-10">
-                                                                {tokenAddress ? <img
-                                                                    className="w-full h-full rounded-full"
-                                                                    src="https://cdn3d.iconscout.com/3d/premium/thumb/solana-4437052-3684819.png"
-                                                                    alt=""
-                                                                /> : null}
-                                                            </div>
-                                                            <div className="ml-3">
-                                                                <p className="text-gray-600 py-2 whitespace-no-wrap">{tokenAddress}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                                        <p className="text-gray-600 whitespace-no-wrap">{ataAddress?.toString()}</p>
-                                                    </td>
+                                                {
+                                                    tokenAccounts.map((account: any, index: any) => {
 
-                                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                                        <p className="text-gray-600 whitespace-no-wrap">{ataAddress ? mintcount : null}</p>
-                                                    </td>
-                                                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                                        <span
-                                                            className="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight"
-                                                        >
-                                                            <span className="relative">
-                                                                {
-                                                                    ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
-                                                                        MintToken(20);
-                                                                    }}>Mint Token</button> : null
-                                                                }
-                                                            </span>
+                                                        return (
+                                                            <tr key={index}>
 
-                                                        </span>
-                                                    </td>
-                                                    <td
-                                                        className="px-5 py-5 border-b border-gray-200 bg-white text-sm text-right"
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            className="inline-block text-gray-500 hover:text-gray-700"
-                                                        >
-                                                            <svg
-                                                                className="inline-block h-6 w-6 fill-current"
-                                                                viewBox="0 0 24 24"
-                                                            >
-                                                                <path
-                                                                    d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm-2 6a2 2 0 104 0 2 2 0 00-4 0z"
-                                                                />
-                                                            </svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
+                                                                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                                                    <div className="flex">
+                                                                        <div className="flex-shrink-0 w-10 h-10">
+                                                                            <img
+                                                                                className="w-full h-full rounded-full"
+                                                                                src="https://cdn3d.iconscout.com/3d/premium/thumb/solana-4437052-3684819.png"
+                                                                                alt=""
+                                                                            />
+                                                                        </div>
+                                                                        <div className="ml-3">
+                                                                            <p className="text-gray-600 py-2 whitespace-no-wrap">{account.toString()}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                                                    <p className="text-gray-600 whitespace-no-wrap">{ataAccounts[index]}</p>
+                                                                </td>
+
+                                                                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                                                    <p className="text-gray-600 whitespace-no-wrap">{ataAddress ? mintcount : null}</p>
+                                                                </td>
+                                                                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                                                    <span
+                                                                        className="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight"
+                                                                    >
+                                                                        <span className="relative">
+                                                                            {
+                                                                                ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
+                                                                                    MintToken(20);
+                                                                                }}>Mint Token</button> : null
+                                                                            }
+                                                                        </span>
+
+                                                                    </span>
+                                                                </td>
+                                                                <td
+                                                                    className="px-5 py-5 border-b border-gray-200 bg-white text-sm text-right"
+                                                                >
+                                                                    <button
+                                                                        type="button"
+                                                                        className="inline-block text-gray-500 hover:text-gray-700"
+                                                                    >
+                                                                        <svg
+                                                                            className="inline-block h-6 w-6 fill-current"
+                                                                            viewBox="0 0 24 24"
+                                                                        >
+                                                                            <path
+                                                                                d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm-2 6a2 2 0 104 0 2 2 0 00-4 0z"
+                                                                            />
+                                                                        </svg>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+
+                                                        )
+                                                    })
+                                                }
+
                                             </tbody>
                                         </table>
                                     </div>
