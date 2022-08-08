@@ -1,0 +1,71 @@
+{
+    "version": "0.1.0",
+    "name": "anchor_token",
+    "instructions": [
+        {
+            "name": "mintToken",
+            "accounts": [
+                {
+                    "name": "tokenProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "mint",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "tokenAccount",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "signer",
+                    "isMut": true,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "data",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "transferToken",
+            "accounts": [
+                {
+                    "name": "tokenProgram",
+                    "isMut": false,
+                    "isSigner": false
+                },
+                {
+                    "name": "from",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "to",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "signer",
+                    "isMut": true,
+                    "isSigner": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "data",
+                    "type": "u64"
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "address": "Beft2Gdn8YBE5NBaKuMNQf4RLfKsyuPhuEsrBzQnKgM4"
+    }
+}
