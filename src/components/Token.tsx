@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import * as anchor from "@project-serum/anchor";
 import { useAnchorWallet } from '@solana/wallet-adapter-react';
 import { Program, BN, AnchorProvider } from '@project-serum/anchor';
@@ -26,7 +26,9 @@ const CreateToken = () => {
     const [ataAddress, setAtaAddress] = useState<PublicKey>();
     const [tokenAccounts, setTokenAccounts] = useState<any>([]);
     const [ataAccounts, setAtaAccounts] = useState<any>([]);
+    const [isRequestSending, setIsRequestSending] = useState<boolean>(false);
     const mintKey = useMemo(() => anchor.web3.Keypair.generate(), []);
+    const [mintInput, setMintInput] = useState<number[]>([]);
     // const mintKey: PublicKey = new anchor.web3.PublicKey("C3RaB4g1uSiyA9UdGTMkVGMAGJdVRLQCxWXP3MTmgNcx");
     const wallet = useAnchorWallet();
     const [mintcount, setMintcount] = useState<number>(0);
@@ -34,10 +36,17 @@ const CreateToken = () => {
 
     useEffect(() => {
         fetchAtaAccounts(tokenAccounts);
+        // if (tokenAccounts.lenght > 0) {
+        setMintInput(Array(tokenAccounts?.length).fill(2))
+        // }
+        console.log(tokenAccounts.length)
     }, [tokenAccounts]);
 
+
+
     useEffect(() => {
-    }, [ataAccounts]);
+        console.log(mintInput)
+    }, [mintInput]);
 
     useEffect(() => {
         if (wallet) {
@@ -69,6 +78,7 @@ const CreateToken = () => {
         if (!provider) {
             return null;
         }
+        setIsRequestSending(true);
 
         const a = JSON.stringify(idl);
         const b = JSON.parse(a);
@@ -88,18 +98,29 @@ const CreateToken = () => {
                 mintKey.publicKey, 0, wallet.publicKey, wallet.publicKey
             ),
         )
-        const res = await provider?.sendAndConfirm(mint_tx, [mintKey]);
 
-        if (res) {
-            setTokenAddress(mintKey.publicKey.toString());
+        try {
+
+            const res = await provider?.sendAndConfirm(mint_tx, [mintKey]);
+            if (res) {
+                setTokenAddress(mintKey.publicKey.toString());
+
+            }
+            
+
+        } catch (e) {
+            console.log(e);
         }
+        setIsRequestSending(false);
+        await getTokenAccount();
+
 
 
 
     }
 
 
-    async function MintToken(mintAmount: number) {
+    async function MintToken(mintAmount: number, ataAddress: any, tokenAddress: any) {
         if (!wallet) {
             return null;
         }
@@ -161,8 +182,14 @@ const CreateToken = () => {
         // setTokenAccounts([...tempAccount]);
 
         setTokenAccounts(
-            accounts.value.map((i) =>
-                AccountLayout.decode(i.account.data).mint
+            accounts.value.map((i) => {
+                const accountInfo = AccountLayout.decode(i.account.data);
+                return {
+                    "token": accountInfo.mint,
+                    "supply": accountInfo.amount,
+                    "new_mint": 100,
+                }
+            }
             ));
     };
 
@@ -179,7 +206,7 @@ const CreateToken = () => {
         let tempAccount: any = [];
         for (const token of tokenAccounts) {
             const ata = await getAssociatedTokenAddress(
-                token,
+                token["token"],
                 wallet.publicKey,
             )
             tempAccount.push(ata.toString());
@@ -188,6 +215,14 @@ const CreateToken = () => {
         setAtaAccounts([...tempAccount]);
     }
 
+    function EditMintInput(id: number, value: number) {
+        setTokenAccounts(tokenAccounts.map((e: any, index: number) => {
+            if (index === id) {
+                e.new_mint = value;
+            }
+            return e;
+        }))
+    }
 
     async function createATA() {
         if (!wallet) {
@@ -198,6 +233,7 @@ const CreateToken = () => {
         if (!provider) {
             return null;
         }
+        setIsRequestSending(true);
         const associatedTokenAccount = await getAssociatedTokenAddress(
             mintKey.publicKey,
             wallet.publicKey,
@@ -216,8 +252,7 @@ const CreateToken = () => {
         catch (e) {
             console.log(e);
         }
-        console.log(associatedTokenAccount.toString(), mintKey.publicKey.toString());
-
+        setIsRequestSending(false);
 
     }
 
@@ -255,9 +290,17 @@ const CreateToken = () => {
                     </div>
                     <div className="flex flex-col items-center py-6 h-[32rem]">
 
-                        {!tokenAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createToken}>Create Token</button> : null}
+                        {!tokenAddress && !isRequestSending ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createToken}>Create Token</button> : null}
 
-                        {tokenAddress && !ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createATA}>Create ATA</button> : null}
+                        {tokenAddress && !isRequestSending && !ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={createATA}>Create ATA</button> : null}
+
+                        {isRequestSending ? <div role="status">
+                            <svg aria-hidden="true" className="mr-2 w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
+                                <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
+                            </svg>
+                        </div> : null}
+
                         <p></p>
                         <div className="container mx-auto px-4 sm:px-8">
                             <div className="py-8">
@@ -312,7 +355,7 @@ const CreateToken = () => {
                                                                             />
                                                                         </div>
                                                                         <div className="ml-3">
-                                                                            <p className="text-gray-600 py-2 whitespace-no-wrap">{account.toString()}</p>
+                                                                            <p className="text-gray-600 py-2 whitespace-no-wrap">{index + 1} - {account.token.toString()}</p>
                                                                         </div>
                                                                     </div>
                                                                 </td>
@@ -321,18 +364,28 @@ const CreateToken = () => {
                                                                 </td>
 
                                                                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                                                    <p className="text-gray-600 whitespace-no-wrap">{ataAddress ? mintcount : null}</p>
+                                                                    <p className="text-gray-600 whitespace-no-wrap">{account.supply.toString()}</p>
                                                                 </td>
                                                                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                                                     <span
                                                                         className="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight"
                                                                     >
+                                                                        <input type="number" className="shadow appearance-none border w-14 rounded py-2 px-3 mr-6 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0" value={mintInput[index]} onChange={(e) => {
+                                                                            // setMintInput(parseInt(e.target.value))
+                                                                            // EditMintInput(index, parseInt(e.target.value))
+                                                                            setMintInput(mintInput.map((el: number, idx: number) => {
+                                                                                if (idx === index) {
+                                                                                    el = parseInt(e.target.value)
+                                                                                }
+                                                                                return el
+                                                                            }))
+
+                                                                        }} />
                                                                         <span className="relative">
-                                                                            {
-                                                                                ataAddress ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
-                                                                                    MintToken(20);
-                                                                                }}>Mint Token</button> : null
-                                                                            }
+                                                                            <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
+                                                                                MintToken(mintInput[index], ataAccounts[index], account.token);
+                                                                            }}>Mint Token</button>
+
                                                                         </span>
 
                                                                     </span>
