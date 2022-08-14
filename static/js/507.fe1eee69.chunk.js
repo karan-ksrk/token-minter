@@ -1,1 +1,0 @@
-(self.webpackChunktoken_minter=self.webpackChunktoken_minter||[]).push([[507,726],{2478:function(){},2361:function(){},4616:function(){}}]);
