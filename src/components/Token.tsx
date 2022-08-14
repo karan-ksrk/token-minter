@@ -1,28 +1,19 @@
-import { useState, useEffect, useMemo, useRef, FC } from 'react'
+import { useState, useEffect } from 'react'
 import * as anchor from "@project-serum/anchor";
 import { useAnchorWallet } from '@solana/wallet-adapter-react';
-import { Program, BN } from '@project-serum/anchor';
-import { Connection, PublicKey } from '@solana/web3.js';
+
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+
 
 import '../App.css'
 
 import { useSelector, useDispatch } from 'react-redux';
-import { getProvider, getTokens, getAtaAccount, mintToken, createToken } from '../features/token/tokenSlice';
+import { getProvider, getTokens, getAtaAccount, mintToken, createToken, burnToken, closeAccount } from '../features/token/tokenSlice';
 
-import {
-  TOKEN_PROGRAM_ID,
-  MINT_SIZE,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddress,
-  createInitializeMintInstruction,
-  AccountLayout,
-} from "@solana/spl-token";
-
-import idl from '../idl.json'
 
 const CreateToken = () => {
   const [mintInputs, setMintInputs] = useState<number[]>([]);
+  const [burnInputs, setBurnInputs] = useState<number[]>([]);
   // const mintKey: PublicKey = new anchor.web3.PublicKey("C3RaB4g1uSiyA9UdGTMkVGMAGJdVRLQCxWXP3MTmgNcx");
 
   const wallet = useAnchorWallet();
@@ -34,12 +25,13 @@ const CreateToken = () => {
   const isTokenRequestSending = useSelector((state: any) => state.token.isTokenRequestSending);
 
 
-  const [modalClass, SetModalClass] = useState<string>('hidden')
+  const [successModalClass, setSuccessModalClass] = useState<string>('hidden')
+  const [tokenModalClass, setTokenModalClass] = useState<string>('hidden')
 
   useEffect(() => {
     dispatch(getAtaAccount({ "wallet": wallet, "tokenAccounts": tokenAccounts }));
     setMintInputs(Array(tokenAccounts?.length).fill(0))
-
+    setBurnInputs(Array(tokenAccounts?.length).fill(0))
   }, [tokenAccounts]);
 
   useEffect(() => {
@@ -51,7 +43,7 @@ const CreateToken = () => {
 
   useEffect(() => {
     if (currentMintKey) {
-      toggleModal();
+      toggleSuccessModal();
     }
   }, [currentMintKey])
 
@@ -68,9 +60,38 @@ const CreateToken = () => {
     ))
   }
 
-  const toggleModal = () => {
-    SetModalClass(modalClass == '' ? 'hidden' : '');
+  const BurnToken = (ataAddress: any, tokenAddress: any, amount: number) => {
+    dispatch(burnToken({
+      'ataAddress': new anchor.web3.PublicKey(ataAddress),
+      'tokenAddress': tokenAddress,
+      'provider': provider,
+      'amount': amount,
+      'wallet': wallet,
+    }))
   }
+
+
+  const CloseAccount = (ataAddress: any, destination: any) => {
+
+    dispatch(closeAccount({
+      'ataAddress': new anchor.web3.PublicKey(ataAddress),
+      'destination': new anchor.web3.PublicKey("5akU31DzhNg125mahJ215XkpzMapZYEZeZmwTjE6Z3FF"),
+      'provider': provider,
+      'authority': wallet,
+    }))
+  }
+
+  const toggleSuccessModal = () => {
+    setSuccessModalClass(successModalClass == '' ? 'hidden' : '');
+  }
+
+  const toggleTokenFormModal = () => {
+    setTokenModalClass(tokenModalClass == '' ? 'hidden' : '');
+  }
+
+  const INITIALIZE = false;
+
+
   return (
     <div className=''>
 
@@ -104,14 +125,9 @@ const CreateToken = () => {
           <div className="flex flex-col items-center py-6 h-full">
 
 
-            {wallet && !isTokenRequestSending ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={
-              () => {
+            {wallet && !isTokenRequestSending ? <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={toggleTokenFormModal}>Create Token</button> : null}
 
-                dispatch(createToken({ "provider": provider, "wallet": wallet }));
-
-
-              }
-            }>Create Token</button> : null}
+            {tokenForm()}
 
             {customModal()}
 
@@ -127,6 +143,7 @@ const CreateToken = () => {
 
       {tokenAccounts.length > 0 ? tokenTable() : null}
       {footer()}
+
 
 
     </div >
@@ -213,10 +230,13 @@ const CreateToken = () => {
                       Amount
                     </th>
                     <th
-                      className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100"
+                      className=" py-3 border-b-2 border-gray-200 bg-gray-100"
                     ></th>
                     <th
-                      className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100"
+                      className="py-3 border-b-2 border-gray-200 bg-gray-100"
+                    ></th>
+                    <th
+                      className=" py-3 border-b-2 border-gray-200 bg-gray-100"
                     ></th>
                   </tr>
                 </thead>
@@ -245,12 +265,12 @@ const CreateToken = () => {
                             <p className="text-gray-600 whitespace-no-wrap">{ataAccounts[index]}</p>
                           </td>
 
-                          <td className=" border-b border-gray-200 bg-slate-200 text-sm">
+                          <td className="border-b border-gray-200 bg-slate-200 text-sm">
                             <p className="text-gray-600 whitespace-no-wrap">{account.supply.toString()}</p>
                           </td>
-                          <td className="px-5 border-b border-gray-200 bg-slate-200 text-sm">
-                            <span className="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight" >
-                              <input type="number" className="shadow appearance-none border w-14 rounded py-2 px-3 mr-6 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0" value={mintInputs[index] || 0} onChange={(e) => {
+                          <td className="border-b border-gray-200 bg-slate-200 text-sm">
+                            <span className="relative inline-block py-1 font-semibold text-green-900 leading-tight" >
+                              <input type="number" min="0" className="shadow appearance-none border w-14 rounded py-2 px-3 mr-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0" value={mintInputs[index] || 0} onChange={(e) => {
                                 setMintInputs(mintInputs.map((el: number, idx: number) => {
                                   if (idx === index) {
                                     el = parseInt(e.target.value)
@@ -262,10 +282,38 @@ const CreateToken = () => {
                               <span className="relative">
                                 <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
                                   MintToken(mintInputs[index], ataAccounts[index], account.token);
-                                }}>Mint Token</button>
+                                }}>Mint</button>
                               </span>
                             </span>
                           </td>
+                          {account.supply != 0 ? <td className="border-b border-gray-200 bg-slate-200 text-sm">
+                            <span className="relative inline-block py-1 font-semibold text-green-900 leading-tight" >
+                              <input type="number" min="0" max={account.supply.toString()} className="shadow appearance-none border w-14 rounded py-2 px-3 mr-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="0" value={burnInputs[index] || 0} onChange={(e) => {
+                                setBurnInputs(burnInputs.map((el: number, idx: number) => {
+                                  if (idx === index) {
+                                    el = parseInt(e.target.value)
+                                  }
+                                  return el
+                                }))
+
+                              }} />
+                              <span className="relative">
+                                <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
+                                  BurnToken(ataAccounts[index], account.token, burnInputs[index]);
+                                }}>Burn </button>
+                              </span>
+                            </span>
+                          </td> : <td className="border-b border-gray-200 bg-slate-200 text-sm">
+                            <span className="relative inline-block py-1 font-semibold text-green-900 leading-tight" >
+                              <span className="relative">
+                                <button className='px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80' onClick={() => {
+                                  CloseAccount(ataAccounts[index], ataAccounts[index]);
+                                }}>Close </button>
+                              </span>
+                            </span>
+                          </td>}
+
+
                           <td className="px-5 py-5 border-b border-gray-200 bg-slate-200 text-sm text-right" >
                             <button type="button" className="inline-block text-gray-500 hover:text-gray-700" >
                               <svg className="inline-block h-6 w-6 fill-current" viewBox="0 0 24 24" >
@@ -318,135 +366,12 @@ const CreateToken = () => {
       </div>
     )
   }
-  function tokenTable1() {
-    return (
-      <section className="antialiased bg-gray-100 text-gray-600 h-0 px-4">
-        <div className="flex flex-col justify-center h-full">
-          <div className="w-full max-w-2xl mx-auto bg-white shadow-lg rounded-sm border border-gray-200">
-            <header className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800">Customers</h2>
-            </header>
-            <div className="p-3">
-              <div className="overflow-x-auto">
-                <table className="table-auto w-full">
-                  <thead className="text-xs font-semibold uppercase text-gray-400 bg-gray-50">
-                    <tr>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="font-semibold text-left">Name</div>
-                      </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="font-semibold text-left">Email</div>
-                      </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="font-semibold text-left">Spent</div>
-                      </th>
-                      <th className="p-2 whitespace-nowrap">
-                        <div className="font-semibold text-center">Country</div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm divide-y divide-gray-100">
-                    <tr>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex-shrink-0 mr-2 sm:mr-3"><img className="rounded-full" src="https://raw.githubusercontent.com/cruip/vuejs-admin-dashboard-template/main/src/images/user-36-05.jpg" width="40" height="40" alt="Alex Shatov" /></div>
-                          <div className="font-medium text-gray-800">Alex Shatov</div>
-                        </div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left">alexshatov@gmail.com</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left font-medium text-green-500">$2,890.66</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-lg text-center">??</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex-shrink-0 mr-2 sm:mr-3"><img className="rounded-full" src="https://raw.githubusercontent.com/cruip/vuejs-admin-dashboard-template/main/src/images/user-36-06.jpg" width="40" height="40" alt="Philip Harbach" /></div>
-                          <div className="font-medium text-gray-800">Philip Harbach</div>
-                        </div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left">philip.h@gmail.com</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left font-medium text-green-500">$2,767.04</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-lg text-center">??</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex-shrink-0 mr-2 sm:mr-3"><img className="rounded-full" src="https://raw.githubusercontent.com/cruip/vuejs-admin-dashboard-template/main/src/images/user-36-07.jpg" width="40" height="40" alt="Mirko Fisuk" /></div>
-                          <div className="font-medium text-gray-800">Mirko Fisuk</div>
-                        </div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left">mirkofisuk@gmail.com</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left font-medium text-green-500">$2,996.00</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-lg text-center">??</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex-shrink-0 mr-2 sm:mr-3"><img className="rounded-full" src="https://raw.githubusercontent.com/cruip/vuejs-admin-dashboard-template/main/src/images/user-36-08.jpg" width="40" height="40" alt="Olga Semklo" /></div>
-                          <div className="font-medium text-gray-800">Olga Semklo</div>
-                        </div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left">olga.s@cool.design</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left font-medium text-green-500">$1,220.66</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-lg text-center">??</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 flex-shrink-0 mr-2 sm:mr-3"><img className="rounded-full" src="https://raw.githubusercontent.com/cruip/vuejs-admin-dashboard-template/main/src/images/user-36-09.jpg" width="40" height="40" alt="Burak Long" /></div>
-                          <div className="font-medium text-gray-800">Burak Long</div>
-                        </div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left">longburak@gmail.com</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-left font-medium text-green-500">$1,890.66</div>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <div className="text-lg text-center">??</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section >
-    )
-  }
-
 
 
   function customModal() {
     return (
       <div className="relative z-10 flex justify-center items-center">
-        <div id="menu" className={`${modalClass} w-full h-full bg-gray-900 bg-opacity-80 top-0 fixed sticky-0`}>
+        <div id="menu" className={`${successModalClass} w-full h-full bg-gray-900 bg-opacity-80 top-0 fixed sticky-0`}>
           <div className="2xl:container  2xl:mx-auto py-48 px-4 md:px-28 flex justify-center items-center">
             <div className="w-96 md:w-auto dark:bg-gray-800 relative flex flex-col justify-center items-center bg-white py-16 px-4 md:px-24 xl:py-24 xl:px-36">
               <div role="banner">
@@ -462,7 +387,7 @@ const CreateToken = () => {
                   {currentMintKey ? currentMintKey.publicKey.toString() : null}</span> </a>
               <button onClick={() => {
 
-                toggleModal();
+                toggleSuccessModal();
 
               }} className="text-gray-800 dark:text-gray-400 absolute top-8 right-8 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800" aria-label="close">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -488,6 +413,65 @@ const CreateToken = () => {
         </div> : null}</>
     )
 
+  }
+
+  function tokenForm() {
+    return (
+      <div className="relative flex justify-center items-center z-20">
+
+        <div className={`${tokenModalClass} w-full h-full bg-gray-900 bg-opacity-80 top-0 fixed sticky-0`}>
+          <div className="2xl:container  2xl:mx-auto xl:py-10 px-4 md:px-28 flex justify-center items-center">
+            <div className="w-96 md:w-auto dark:bg-gray-800 relative flex flex-col justify-center items-center bg-white py-16 px-4 md:px-24 xl:py-10">
+              <div role="banner">
+                <img className="w-16" src="https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png" alt="Solana Logo" />
+              </div>
+              <div className="mt-12">
+                <h1 role="main" className="text-3xl dark:text-white lg:text-4xl font-semibold leading-7 lg:leading-9 text-center text-gray-800">Add metadata for your token</h1>
+              </div>
+              <div className="mt">
+                <p className="mt-6 sm:w-80 text-base dark:text-white leading-7 text-center text-gray-800">Please, accept these sweeties to continue enjoying our site!</p>
+                <div className="mb-4">
+                  <label className="block text-zinc-400 text-sm font-bold mb-2">
+                    Name
+                  </label>
+                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Name" />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-zinc-400 text-sm font-bold mb-2">
+                    Symbol
+                  </label>
+                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Symbol" />
+                </div>
+                <label className="block text-zinc-400 text-sm font-bold mb-2">
+                  Logo
+                </label>
+                <label className="w-full flex flex-col items-center  py-3 mx-auto bg-white text-blue rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-blue hover:text-white">
+                  <svg className="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
+                  </svg>
+                  <span className="mt-2 text-base leading-normal">Select a logo</span>
+                  <input type='file' className="hidden" />
+                </label>
+
+
+              </div>
+              <button className="w-full dark:text-gray-800 dark:hover:bg-gray-100 dark:bg-white sm:w-auto mt-14 text-base leading-4 text-center text-white py-6 px-16 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 bg-gray-800 hover:bg-black" onClick={
+                () => {
+                  dispatch(createToken({ "provider": provider, "wallet": wallet }));
+                }}>Create Token</button>
+              <a href="" className="mt-6 dark:text-white dark:hover:border-white text-base leading-none focus:outline-none hover:border-gray-800 focus:border-gray-800 border-b border-transparent text-center text-gray-800">Nope.. I am on a diet</a>
+              <button onClick={toggleTokenFormModal} className="text-gray-800 dark:text-gray-400 absolute top-8 right-8 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800" aria-label="close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div >
+
+    )
   }
 }
 

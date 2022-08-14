@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
 import { createSlice, createAsyncThunk, AnyAction } from '@reduxjs/toolkit';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, BN, AnchorProvider, Provider } from '@project-serum/anchor';
 import { AnchorWallet } from '@solana/wallet-adapter-react';
+import * as web3 from "@solana/web3.js";
 import * as anchor from '@project-serum/anchor';
+import * as mpl from "@metaplex-foundation/mpl-token-metadata"
 
 import {
     TOKEN_PROGRAM_ID,
@@ -11,6 +12,8 @@ import {
     createAssociatedTokenAccountInstruction,
     getAssociatedTokenAddress,
     createInitializeMintInstruction,
+    createBurnInstruction,
+    createCloseAccountInstruction,
     AccountLayout,
 } from "@solana/spl-token";
 
@@ -93,6 +96,45 @@ export const mintToken = createAsyncThunk('token/mintToken', async (data: any, {
     }
 })
 
+export const burnToken = createAsyncThunk('token/burnToken', async (data: any, { dispatch }) => {
+
+    const ataAddress: PublicKey = data.ataAddress;
+    const tokenAddress: PublicKey = data.tokenAddress;
+    const wallet: AnchorWallet = data.wallet;
+    const amount: number = data.amount;
+    const provider = data.provider;
+
+    const tx = new anchor.web3.Transaction().add(
+        createBurnInstruction(
+            ataAddress,
+            tokenAddress,
+            wallet.publicKey,
+            amount,
+        )
+    )
+    const res = await provider?.sendAndConfirm(tx, []);
+    dispatch(getTokens(wallet));
+})
+
+export const closeAccount = createAsyncThunk('token/closeAccount', async (data: any, { dispatch }) => {
+    // account: PublicKey, destination: PublicKey, authority: PublicKey,
+
+    const provider = data.provider;
+    const authority: AnchorWallet = data.authority;
+    const ataAddress: PublicKey = data.ataAddress;
+    const destination: PublicKey = data.destination;
+
+    const tx = new anchor.web3.Transaction().add(
+        createCloseAccountInstruction(
+            ataAddress,
+            destination,
+            authority.publicKey,
+        )
+    )
+    const res = await provider?.sendAndConfirm(tx, []);
+    dispatch(getTokens(authority));
+})
+
 export const createToken = createAsyncThunk('token/createToken', async (data: any, { dispatch }) => {
 
     const a = JSON.stringify(idl);
@@ -100,6 +142,39 @@ export const createToken = createAsyncThunk('token/createToken', async (data: an
     const provider = data.provider;
     const wallet: AnchorWallet = data.wallet;
     const mintKey = anchor.web3.Keypair.generate();
+
+    // Meta Data
+    const mint = mintKey.publicKey;
+    const seed1 = Buffer.from(anchor.utils.bytes.utf8.encode("metadata"));
+    const seed2 = Buffer.from(mpl.PROGRAM_ID.toBytes());
+    const seed3 = Buffer.from(mint.toBytes());
+    const [metadataPDA, _bump] = web3.PublicKey.findProgramAddressSync([seed1, seed2, seed3], mpl.PROGRAM_ID);
+
+    const accounts = {
+        metadata: metadataPDA,
+        mint,
+        mintAuthority: wallet!.publicKey,
+        payer: wallet!.publicKey,
+        updateAuthority: wallet!.publicKey,
+    }
+
+    const dataV2 = {
+        name: "Joke Coin",
+        symbol: "JK",
+        uri: "https://raw.githubusercontent.com/karan-ksrk/token-minter/master/metadata.json",
+        // we don't need that
+        sellerFeeBasisPoints: 0,
+        creators: null,
+        collection: null,
+        uses: null
+    }
+
+    const args = {
+        createMetadataAccountArgsV2: {
+            data: dataV2,
+            isMutable: true
+        }
+    };
 
     const program = new Program(b, idl.metadata.address, provider);
     const lamports: number = await program.provider.connection.getMinimumBalanceForRentExemption(MINT_SIZE);
@@ -120,18 +195,26 @@ export const createToken = createAsyncThunk('token/createToken', async (data: an
         createInitializeMintInstruction(
             mintKey.publicKey, 0, wallet.publicKey, wallet.publicKey
         ),
-        createAssociatedTokenAccountInstruction(wallet.publicKey, associatedTokenAccount, wallet.publicKey, mintKey.publicKey)
+        createAssociatedTokenAccountInstruction(wallet.publicKey, associatedTokenAccount, wallet.publicKey, mintKey.publicKey),
+        mpl.createCreateMetadataAccountV2Instruction(accounts, args),
     );
-    // try {
     const res = await provider?.sendAndConfirm(token_txn, [mintKey]);
     dispatch(getTokens(wallet));
     if (res) {
         return mintKey;
     }
-    // } catch (e) {
-    //     console.log(e);
-    // }
+
+    // const args = {
+    //     updateMetadataAccountArgsV2: {
+    //         data: dataV2,
+    //         isMutable: true,
+    //         updateAuthority: wallet!.publicKey,
+    //         primarySaleHappened: true
+    //     }
+    // };
+    // ix = mpl.createUpdateMetadataAccountV2Instruction(accounts, args)
 })
+
 
 
 const tokenSlice = createSlice({
@@ -153,6 +236,8 @@ const tokenSlice = createSlice({
                     "token": accountInfo.mint,
                     "supply": accountInfo.amount,
                     "new_mint": 100,
+                    "data": accountInfo,
+
                 }
             })
         })
