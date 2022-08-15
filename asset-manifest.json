@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/token-minter/static/css/main.c072501a.css",
-    "main.js": "/token-minter/static/js/main.c75e0298.js",
+    "main.css": "/token-minter/static/css/main.ee600e71.css",
+    "main.js": "/token-minter/static/js/main.ecd181fb.js",
     "static/js/994.80c2ad00.chunk.js": "/token-minter/static/js/994.80c2ad00.chunk.js",
     "static/js/863.77f8b496.chunk.js": "/token-minter/static/js/863.77f8b496.chunk.js",
     "static/js/997.e780af9e.chunk.js": "/token-minter/static/js/997.e780af9e.chunk.js",
@@ -15,8 +15,8 @@
     "static/js/966.aec9f385.chunk.js": "/token-minter/static/js/966.aec9f385.chunk.js",
     "static/js/961.33aa8c80.chunk.js": "/token-minter/static/js/961.33aa8c80.chunk.js",
     "index.html": "/token-minter/index.html",
-    "main.c072501a.css.map": "/token-minter/static/css/main.c072501a.css.map",
-    "main.c75e0298.js.map": "/token-minter/static/js/main.c75e0298.js.map",
+    "main.ee600e71.css.map": "/token-minter/static/css/main.ee600e71.css.map",
+    "main.ecd181fb.js.map": "/token-minter/static/js/main.ecd181fb.js.map",
     "994.80c2ad00.chunk.js.map": "/token-minter/static/js/994.80c2ad00.chunk.js.map",
     "863.77f8b496.chunk.js.map": "/token-minter/static/js/863.77f8b496.chunk.js.map",
     "997.e780af9e.chunk.js.map": "/token-minter/static/js/997.e780af9e.chunk.js.map",
@@ -29,7 +29,7 @@
     "961.33aa8c80.chunk.js.map": "/token-minter/static/js/961.33aa8c80.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.c072501a.css",
-    "static/js/main.c75e0298.js"
+    "static/css/main.ee600e71.css",
+    "static/js/main.ecd181fb.js"
   ]
 }
