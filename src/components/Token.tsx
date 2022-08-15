@@ -147,7 +147,7 @@ const CreateToken = () => {
 
       </header >
 
-      {tokenAccounts.length > 0 ? tokenTable() : null}
+      {wallet ? tokenTable() : null}
       {footer()}
 
 
