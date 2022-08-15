@@ -14,6 +14,9 @@ import { getProvider, getTokens, getAtaAccount, mintToken, createToken, burnToke
 const CreateToken = () => {
   const [mintInputs, setMintInputs] = useState<number[]>([]);
   const [burnInputs, setBurnInputs] = useState<number[]>([]);
+  const [tokenName, setTokenName] = useState<string>();
+  const [tokenSymbol, setTokenSymbol] = useState<string>();
+  const [tokenUri, setTokenUri] = useState<string>();
   // const mintKey: PublicKey = new anchor.web3.PublicKey("C3RaB4g1uSiyA9UdGTMkVGMAGJdVRLQCxWXP3MTmgNcx");
 
   const wallet = useAnchorWallet();
@@ -32,6 +35,9 @@ const CreateToken = () => {
     dispatch(getAtaAccount({ "wallet": wallet, "tokenAccounts": tokenAccounts }));
     setMintInputs(Array(tokenAccounts?.length).fill(0))
     setBurnInputs(Array(tokenAccounts?.length).fill(0))
+    setTokenName('')
+    setTokenSymbol('')
+    setTokenUri('')
   }, [tokenAccounts]);
 
   useEffect(() => {
@@ -103,7 +109,7 @@ const CreateToken = () => {
 
           <div className="flex flex-col items-center py-20 lg:py-40  lg:h-full lg:flex-col">
             <div className="items-center flex flex-col">
-              <h2 className="text-4xl text-center leading-snug justify-center font-semibold text-gray-100">CREATE, MINT AND <br /> TRANSFER TOKEN</h2>
+              <h2 className="text-4xl text-center leading-snug justify-center font-semibold text-gray-100">CREATE, MINT, BURN AND <br /> TRANSFER TOKEN</h2>
 
 
               {wallet ? <>
@@ -434,30 +440,42 @@ const CreateToken = () => {
                   <label className="block text-zinc-400 text-sm font-bold mb-2">
                     Name
                   </label>
-                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Name" />
+                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Name" onChange={(e) => {
+                    setTokenName(e.target.value);
+                  }} />
                 </div>
                 <div className="mb-4">
                   <label className="block text-zinc-400 text-sm font-bold mb-2">
                     Symbol
                   </label>
-                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Symbol" />
+                  <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Symbol" onChange={(e) => {
+                    setTokenSymbol(e.target.value);
+                  }} />
                 </div>
-                <label className="block text-zinc-400 text-sm font-bold mb-2">
-                  Logo
-                </label>
-                <label className="w-full flex flex-col items-center  py-3 mx-auto bg-white text-blue rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-blue hover:text-white">
-                  <svg className="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
-                  </svg>
-                  <span className="mt-2 text-base leading-normal">Select a logo</span>
-                  <input type='file' className="hidden" />
-                </label>
+                <div className="flex justify-center">
+                  <div className="mb-3 xl:w-96">
+                    <label className="form-label inline-block mb-2 font-bold  text-zinc-400 "
+                    >Token metadata uri</label>
+                    <textarea
+                      className="form-control block w-full px-3 py-1.5 text-base font-normal text-gray-700 bg-white bg-clip-padding border border-solid border-gray-300 rounded transition ease-in-out m-0 focus:text-gray-700 focus:bg-white focus:border-blue-600 focus:outline-none "
+                      id="exampleFormControlTextarea1"
+                      rows={3}
+                      placeholder="Paste metadata uri Link here"
+                      onChange={(e) => {
+                        setTokenUri(e.target.value);
+                      }
+                      }
+                    ></textarea>
+                  </div>
+                </div>
 
 
               </div>
               <button className="w-full dark:text-gray-800 dark:hover:bg-gray-100 dark:bg-white sm:w-auto mt-14 text-base leading-4 text-center text-white py-6 px-16 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 bg-gray-800 hover:bg-black" onClick={
                 () => {
-                  dispatch(createToken({ "provider": provider, "wallet": wallet }));
+                  toggleTokenFormModal();
+                  dispatch(createToken({ "provider": provider, "wallet": wallet, "name": tokenName, "symbol": tokenSymbol, "uri": tokenUri }));
+
                 }}>Create Token</button>
               <a href="" className="mt-6 dark:text-white dark:hover:border-white text-base leading-none focus:outline-none hover:border-gray-800 focus:border-gray-800 border-b border-transparent text-center text-gray-800">Nope.. I am on a diet</a>
               <button onClick={toggleTokenFormModal} className="text-gray-800 dark:text-gray-400 absolute top-8 right-8 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800" aria-label="close">

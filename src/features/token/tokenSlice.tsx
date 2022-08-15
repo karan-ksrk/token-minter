@@ -159,9 +159,9 @@ export const createToken = createAsyncThunk('token/createToken', async (data: an
     }
 
     const dataV2 = {
-        name: "Joke Coin",
-        symbol: "JK",
-        uri: "https://raw.githubusercontent.com/karan-ksrk/token-minter/master/metadata.json",
+        name: data.name,
+        symbol: data.symbol,
+        uri: data.uri,
         // we don't need that
         sellerFeeBasisPoints: 0,
         creators: null,
